@@ -1,0 +1,364 @@
+%
+% z.sty
+%
+% This file is part of PZT
+%
+% Copyright (c) 1982--2006 J. M. Spivey
+% Copyright (c) 2019       Florian Schanda
+% All rights reserved
+%
+% The vast majority of this file is taken from fuzz, and its license
+% is 3-clause BSD as follows:
+%
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+% 1. Redistributions of source code must retain the above copyright notice,
+%    this list of conditions and the following disclaimer.
+% 2. Redistributions in binary form must reproduce the above copyright notice,
+%    this list of conditions and the following disclaimer in the documentation
+%    and/or other materials provided with the distribution.
+% 3. The name of the author may not be used to endorse or promote products
+%    derived from this software without specific prior written permission.
+%
+% The other changes are (c) Florian Schanda and are licensed under
+% the GPL 3, see LICENSE the full text. The main contributions are:
+%
+% * Remove dependency on the METAFONT symbols from fuzz. This makes it
+%   a lot easier to distribute the style.
+% * Add \label for each schema
+% * Add \real symbol
+
+\ProvidesPackage{z}[2019/09/09]
+\RequirePackage{amssymb}
+\RequirePackage{stmaryrd}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta}
+
+\def\fuzz{{\large\it f\kern0.1em}{\normalsize\sc uzz}}
+
+%
+% MATHCODES
+%
+% The mathcodes for the letters A, ..., Z, a, ..., z are changed to
+% generate text italic rather than math italic by default. This makes
+% multi-character identifiers look better. The mathcode for 'c'
+% is set to "7000 (variable family) + "?00 (text italic) + c.
+%
+
+% \setmcodes{begin}{end}{base} -- assign successive mathcode to
+% characters BEGIN thru END, starting at BASE.
+\def\@setmcodes#1#2#3{{\count0=#1 \count1=#3
+  \loop \global\mathcode\count0=\count1 \ifnum \count0<#2
+  \advance\count0 by1 \advance\count1 by1 \repeat}}
+
+\DeclareSymbolFont{italic}{OT1}{\rmdefault}{m}{it}
+\let\mathit\undefined
+\DeclareSymbolFontAlphabet{\mathit}{italic}
+\edef\@tempa{\hexnumber@\symitalic}
+\@setmcodes{`A}{`Z}{"7\@tempa41}
+\@setmcodes{`a}{`z}{"7\@tempa61}
+
+%
+% COMMON SYMBOLS
+%
+% Here are some math symbols and conventions that are independent of
+% the symbol font.
+%
+
+% ~ gives a \, space in math mode
+\def~{\ifmmode\,\else\penalty\@M\ \fi}
+
+% Semicolon is active in math mode; it inserts a thick space
+\mathcode`\;="8000 % Makes ; active in math mode
+{\catcode`\;=\active \gdef;{\mathchar"3B\;}}
+
+% \@myop makes an operator, with a strut to defeat TeX's vertical adjustment.
+% (see TeXbook, Appendix G, verse 13, p. 444)
+\def\@myop#1{\mathop{\mathstrut{#1}}\nolimits}
+
+% This underscore is a bit wider than the one in Plain, and doesn't
+% have the little kern. In math mode, it still suffers from italic
+% corrections inserted because a preceding letter is not marked as a
+% text symbol (see TeXbook, Appendix G, verse 14, p. 444 and
+% verse 17, p. 445). But in such cases, you can write e.g. $"DISK\_POOL"$.
+\def\_{\leavevmode \ifmmode\else\kern0.06em\fi \vbox{\hrule width0.5em}}
+\mathcode`\"="8000
+\def\@kwote#1"{\hbox{\it #1}}
+{\catcode`\"=\active \global\let"=\@kwote}
+
+% @ and | are re-defined to produce \spot and \mid.
+\mathchardef\spot="320F
+\mathcode`\@=\spot
+\mathcode`\|=\mid
+
+% \inrel for underlined relations
+\def\inrel#1{\mathrel{\underline{#1}}}
+
+%
+% SCHEMAS, Etc.
+%
+% Here are environments for the various sorts of
+% displays which occur in Z documents. All displays are set
+% flush left, indented by \zedindent, by default \leftmargini.
+% schemas, etc, are made just wide enough to give equal margins
+% left and right.
+%
+% Some environments (schema, etc.) must not be split,
+% and others (argue) may be split arbitrarily. All generate alignment
+% displays, and penalties are used to control page breaks.
+%
+
+% Style parameters
+\newdimen\zedindent	\zedindent=\leftmargini
+\newdimen\zedleftsep	\zedleftsep=1em
+\newdimen\zedtab	\zedtab=2em
+\newdimen\zedbar	\zedbar=6em
+\newskip\zedskip	\zedskip=0.5\baselineskip plus0.333333\baselineskip
+				minus0.333333\baselineskip
+\def\zedsize{}
+
+% Internal variables
+\newcount\interzedlinepenalty \interzedlinepenalty=10000
+\newcount\preboxpenalty \preboxpenalty=0
+\newif\ifzt@p		\zt@pfalse
+
+\def\@jot{0.5\zedskip}
+
+\def\@narrow{\advance\linewidth by-\zedindent}
+
+\def\@zrulefill{\leaders\hrule height\arrayrulewidth\hfill}
+
+\def\@topline#1{\hbox to\linewidth{%
+  \vrule height\arrayrulewidth width\arrayrulewidth
+  \vrule height0pt depth\@jot width0pt
+  \hbox to\zedleftsep{\@zrulefill\thinspace}%
+  #1\thinspace\@zrulefill}}
+
+\def\@zedline{\omit \vrule height\arrayrulewidth width\linewidth \cr}
+
+\def\where{\@zskip\@jot
+  \omit \vrule height\arrayrulewidth width\zedbar \cr
+  \@zskip\@jot}
+
+\def\also{\crcr \noalign{\penalty\interdisplaylinepenalty \vskip\zedskip}}
+\def\@zskip#1{\crcr \omit \vrule height#1 width\arrayrulewidth \cr}
+\def\@zlign{\tabskip\z@skip\everycr{}} % \@lign missing in SliTeX
+
+% This new \t allows braces around numbers 10 and up but doesn't need them
+\let\tie=\t
+\def\t#1{\afterassignment\@t\count@=#1}
+\def\@t{\hskip\count@\zedtab}
+
+% \@setzsize allows size changing in math mode
+\def\@setzsize{\let\next=\@nomath\def\@nomath##1{}%
+  \skip0=\abovedisplayskip\skip1=\belowdisplayskip
+  \zedsize \let\@nomath=\next
+  \abovedisplayskip=\skip0\belowdisplayskip=\skip1}
+
+\def\@zed{\ifvmode\@zleavevmode\fi
+  $$\global\zt@ptrue
+  \@setzsize
+  \advance\linewidth by-\zedindent
+  \advance\displayindent by\zedindent
+  \def\\{\crcr}% Must have \def and not \let for nested alignments.
+  \let\par=\relax
+  \tabskip=0pt}
+
+\def\@znoskip{\offinterlineskip
+  \everycr={\noalign{\ifzt@p \global\zt@pfalse
+    % Simulate interline glue
+      \ifdim\prevdepth>-1000pt \skip0=\normalbaselineskip
+        \advance\skip0by-\prevdepth \advance\skip0by-\ht\strutbox
+        \ifdim\skip0<\normallineskiplimit \vskip\normallineskip
+        \else \vskip\skip0 \fi\fi
+    \else \penalty\interzedlinepenalty \fi}}}
+
+\def\zed{\@zed\@znoskip\halign to\linewidth\bgroup
+  \strut$\@zlign##$\hfil \tabskip=0pt plus1fil\cr}
+\def\endzed{\crcr\egroup$$\global\@ignoretrue}
+
+\def\[{\begingroup\zed}
+\def\]{\crcr\egroup$$\endgroup\ignorespaces}
+
+\def\axdef{\def\also{\@zskip\zedskip}%
+  \predisplaypenalty=\preboxpenalty
+  \@zed\@znoskip \halign to\linewidth\bgroup
+    \strut \vrule width\arrayrulewidth \hskip\zedleftsep
+    $\@zlign##$\hfil \tabskip=0pt plus1fil\cr}
+\let\endaxdef=\endzed
+
+\def\schema#1{\label{#1}\@ifnextchar[{\@schema{#1}}{\@nschema{#1}}}
+\def\@schema#1[#2]{\@nschema{#1[#2]}}
+\def\@nschema#1{\@narrow\axdef \omit\@topline{$\strut#1$}\cr}
+\def\endschema{\@zskip\@jot \@zedline \endzed}
+
+\@namedef{schema*}{\@narrow\axdef \@zedline \@zskip\@jot}
+\expandafter\let\csname endschema*\endcsname=\endschema
+
+\def\gendef{\@ifnextchar[{\@gendef}{\@ngendef}}
+\def\@gendef[#1]{\@narrow\axdef \omit \setbox0=\hbox{$\strut[#1]$}%
+  \rlap{\raise\doublerulesep\@topline{\hskip\wd0}}\@topline{\box0}\cr}
+\def\@ngendef{\@narrow\axdef \@zedline \omit \hbox to\linewidth{\vrule
+  height\doublerulesep width\arrayrulewidth \@zrulefill}\cr \@zskip\@jot}
+\let\endgendef=\endschema
+
+\def\argue{\@zed \interzedlinepenalty=\interdisplaylinepenalty
+  \openup\@jot \halign to\linewidth\bgroup
+    \strut$\@zlign##$\hfil \tabskip=0pt plus1fil
+    &\hbox to0pt{\hss[\@zlign##\unskip]}\tabskip=0pt\cr
+    \noalign{\vskip-\@jot}}
+\let\endargue=\endzed
+
+% \because gives a reason in \argue on a line of its own.
+\def\because#1{\noalign{\vskip-\jot}&#1\cr}
+
+\def\syntax{\@zed\@znoskip \halign\bgroup
+  \strut$\@zlign##$\hfil &\hfil$\@zlign{}##{}$\hfil
+  &$\@zlign##$\hfil\cr}
+\let\endsyntax=\endzed
+
+% `infrule' environment: used for inference rules. The horizontal line is
+% generated by \derive: an optional argument contains the side-conditions
+% of the rule.
+\def\infrule{\@zed\@znoskip \halign\bgroup
+  \strut\quad$\@zlign##$\quad\hfil&\quad\@zlign##\hfil\cr}
+\let\endinfrule=\endzed
+
+\def\derive{\crcr \noalign{\vskip\@jot} \omit\@zrulefill
+  \@ifnextchar[{\@xderive}{\@yderive}}
+\def\@xderive[#1]{&$\smash{\lower 0.5ex\hbox{$[\;#1\;]$}}$\cr
+  \noalign{\vskip\@jot}}
+\def\@yderive{\cr \noalign{\vskip\@jot}}
+
+% \@zleavevmode -- Enter horizontal mode, taking account of possible
+% interaction with lists and section heads:
+%	1	After a \item, use \indent to get the label (this
+%		fails to run in even short labels).
+%	2	After a run-in heading, use \indent.
+%	3	After an ordinary heading, throw away the \everypar
+%		tokens, reset \@nobreak, and use \noindent with \parskip
+%		zero. Set \abovedisplayskip to zero.
+%	4	Otherwise, use \noindent with \parskip zero
+\def\@zleavevmode{\if@inlabel \indent
+  \else\if@noskipsec \indent
+  \else\if@nobreak \global\@nobreakfalse
+      \everypar={}\abovedisplayskip=0pt\fi
+    {\parskip=0pt\noindent}\fi\fi}
+
+%
+% Z SYMBOLS
+%
+
+\let\@mc=\mathchardef
+\def\@ms#1"#2?#3#4{\DeclareMathSymbol{#1}{#2}{zed}{"#3#4}}
+
+% In the same order as the Z reference manual ...
+
+% Chapter 2
+
+% These don't quite match the triangles <| |> that are used by Spivey,
+% instead we use <<< and >>>. In the future we can draw them with TikZ
+% maybe.
+\def\lblot{\lll}
+\def\rblot{\ggg}
+\def\bind{\Rrightarrow}
+
+% Chapter 3
+\def \defs	{\mathrel{\widehat=}}
+\def \power	{\mathbb{P}}
+\let \cross	\times
+\def \lambda	{\@myop{\mathchar"115}}
+\def \mu	{\@myop{\mathchar"116}}
+\def\lbag{\llbracket}
+\def\rbag{\rrbracket}
+\def \lnot	{\neg\;}
+\@mc \land	"325E
+\@mc \lor	"325F
+\let \implies	\Rightarrow
+\let \iff	\Leftrightarrow
+\def \forall	{\@myop{\mathchar"238}}
+\def \exists	{\@myop{\mathchar"239}}
+\@mc \hide	"326E
+\def\project{\upharpoonright}
+\def \pre	{\mathrm{pre}\;}
+% TODO: Open semicolon, for now we just use a normal one in bold
+\def\semi{\textbf{;}}
+% TODO: \ll and \rr are too similar to \pipe, so we could maybe use
+% the quotation marks instead?
+\def\ldata{\textrm{``}}
+\def\rdata{\textrm{''}}
+\let \shows	\vdash
+\def \pipe      {\mathrel{\mathchar"13E\!\!\mathchar"13E}}
+\def \LET       {{\mathbf{let}}\;}
+\def \IF	{{\mathbf{if}}\;}
+\def \THEN	{\mathrel{\mathbf{then}}}
+\def \ELSE	{\mathrel{\mathbf{else}}}
+
+% Chapter 4
+\def\emptyset{\varnothing}
+\def\rel{\leftrightarrow}
+\def \dom	{\mathop{\mathrm{dom}}}
+\def \ran	{\mathop{\mathrm{ran}}}
+\def \id	{\mathop{\mathrm{id}}}
+% TODO: Open semicolon, for now we just use a normal one in bold
+\def\comp{\textbf{;}}
+\def\dres{\vartriangleleft}
+\def\rres{\vartriangleright}
+% TODO: Anti-restrictions almost look right, but the dash could be better
+\def\ndres{\ntriangleleft}
+\def\nrres{\ntriangleright}
+\def \inv	{^\sim}
+\def\limg{\llparenthesis}
+\def\rimg{\rrparenthesis}
+% TODO: The function arrows are extremely fiddly. I am not sure if
+% drawing them with TikZ is the way forwards
+\tikzstyle{fun}=[-{Classical TikZ Rightarrow[length=0.3em]}]
+\tikzstyle{inj}=[{Classical TikZ Rightarrow[length=0.3em,reversed]}-{Classical TikZ Rightarrow[length=0.3em]}]
+\tikzstyle{surj}=[-{Classical TikZ Rightarrow[length=0.3em] Classical TikZ Rightarrow[length=0.3em]}]
+\tikzstyle{bij}=[{Classical TikZ Rightarrow[length=0.3em,reversed]}-{Classical TikZ Rightarrow[length=0.3em] Classical TikZ Rightarrow[length=0.3em]}]
+\def\fun{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[fun] (0, 0.5ex) -- (1.25em, 0.5ex);}}
+\def\pfun{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[fun] (0, 0.5ex) -- (1.25em, 0.5ex); \draw (0.5em, 0.1ex) -- (0.5em, 0.9ex);}}
+\def\inj{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[inj] (0, 0.5ex) -- (1.25em, 0.5ex);}}
+\def\pinj{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[inj] (0, 0.5ex) -- (1.25em, 0.5ex); \draw (0.6em, 0.1ex) -- (0.6em, 0.9ex);}}
+\def\surj{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[surj] (0, 0.5ex) -- (1.25em, 0.5ex);}}
+\def\psurj{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[surj] (0, 0.5ex) -- (1.25em, 0.5ex); \draw (0.3em, 0.1ex) -- (0.3em, 0.9ex);}}
+\def\bij{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[bij] (0, 0.5ex) -- (1.25em, 0.5ex);}}
+\def \nat {\mathbb{N}}
+\def \num {\mathbb{Z}}
+\def \real	{\mathbb{R}}
+\def \div	{\mathbin{\mathsf{div}}}
+\def \mod	{\mathbin{\mathsf{mod}}}
+\def \upto	{\mathbin{\ldotp\ldotp}}
+\def \plus	{^+}
+\def \star	{^*}
+\def \finset {\mathbb{F}}
+\def\ffun{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[fun] (0, 0.5ex) -- (1.25em, 0.5ex); \draw (0.45em, 0.0ex) -- (0.45em, 1.0ex); \draw (0.55em, 0.0ex) -- (0.55em, 1.0ex);}}
+\def\finj{\tikz{\useasboundingbox (-.25em, 0) rectangle (1.5em, 1ex); \draw[inj] (0, 0.5ex) -- (1.25em, 0.5ex); \draw (0.55em, 0.0ex) -- (0.55em, 1.0ex); \draw (0.65em, 0.0ex) -- (0.65em, 1.0ex);}}
+\def \seq	{\mathop{\mathrm{seq}}}
+\def \iseq	{\mathop{\mathrm{iseq}}}
+% TODO: Should be higher
+\def\cat{\frown}
+\def\filter{\upharpoonright}
+\def \dcat	{\mathop{\cat/}}
+\def \bag	{\mathop{\mathrm{bag}}}
+\def \bcount	{\mathbin{\sharp}}
+% TODO: Maybe we can modify an existing symbol instead, or draw them
+% all consistently like this
+\def\inbag{\tikz{
+    \useasboundingbox (-.2em, 0) rectangle (1.0em, 1.25ex);
+    \draw (0.6em, 0.0) -- (0.0, 0.0) -- (0.0, 1.25ex) -- (0.6em, 1.25ex);
+    \draw (0.0, 0.625ex) -- (0.6em, 0.625ex);
+  }}
+\let \subbageq  \sqsubseteq
+\def \disjoint  {{\mathsf{disjoint}}\;}
+\def \partition {\mathrel{\mathsf{partition}}}
+\def \prefix    {\mathrel{\mathsf{prefix}}}
+\def \suffix    {\mathrel{\mathsf{suffix}}}
+\def \inseq     {\mathrel{\mathsf{in}}}
+\def\extract{\upharpoonleft}
+
+% This one is copied from zed-csp.sty (c) Jim Davies, January 1995
+\def \uminus@sym{\setbox0=\hbox{$\cup$}\rlap{\hbox
+    to\wd0{\hss\raise0.3ex\hbox{$\scriptscriptstyle{-}$}\hss}}\box0}
+\def \uminus    {\mathrel{\uminus@sym}}
